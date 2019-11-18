@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	dim = 14
+	dim = 13
 )
 
 type board struct {
@@ -66,8 +66,137 @@ func (bo *board) addQueen(row int) {
 	bo.Queens[step].column = step
 	pathCurr[step].row = row
 	pathCurr[step].column = step
+
+	// optimization
+	// cells under attack
+	for i := step; i < dim; i++ {
+		bo.ProhibCheck[row][i] = true
+	}
+	for r, c := 1, 1; row+r < dim && step+c < dim; r, c = r+1, c+1 {
+		bo.ProhibCheck[row+r][step+c] = true
+	}
+	for r, c := -1, 1; row+r >= 0 && step+c < dim; r, c = r-1, c+1 {
+		bo.ProhibCheck[row+r][step+c] = true
+	}
+	// --optimization
 }
 
+func (bo *board) printPrChech() {
+	for r := dim - 1; r >= 0; r-- {
+		pf("%d ", r+1)
+		if r < 9 {
+			pf(" ")
+		}
+		for c := 0; c < dim; c++ {
+			if bo.cellOccu[r][c] {
+				pf("[Q]")
+			} else if bo.ProhibCheck[r][c] || c < step {
+				pf("[-]")
+			} else {
+				pf("[ ]")
+			}
+		}
+		pf("\n")
+	}
+	pf("    a  b")
+	if dim > 2 {
+		for i := 2; i < dim; i++ {
+			pf("  %s", clmns[i])
+		}
+	}
+	pf("\n")
+}
+
+func (bo *board) FreePlaces(col int) []int {
+	free := make([]int, 0, dim)
+	for i := 0; i < dim; i++ {
+		if !bo.ProhibCheck[i][col] {
+			free = append(free, i)
+		}
+	}
+	return free
+}
+
+func (bo *board) remQueen() {
+	bo.cellOccu[bo.Queens[step].row][bo.Queens[step].column] = false
+	pathCurr[step].row = 0
+	pathCurr[step].column = 0
+
+	// optimization
+	// nullizer
+	for r := 0; r < dim; r++ {
+		for c := 0; c < dim; c++ {
+			bo.ProhibCheck[r][c] = false
+		}
+	}
+	for i := 0; i < step; i++ {
+		rQ := bo.Queens[i].row
+		cQ := bo.Queens[i].column
+		for j := i; j < dim; j++ {
+			bo.ProhibCheck[rQ][j] = true
+		}
+		for r, c := 1, 1; rQ+r < dim && cQ+c < dim; r, c = r+1, c+1 {
+			bo.ProhibCheck[rQ+r][cQ+c] = true
+		}
+		for r, c := -1, 1; rQ+r >= 0 && cQ+c < dim; r, c = r-1, c+1 {
+			bo.ProhibCheck[rQ+r][cQ+c] = true
+		}
+	}
+	// --optimization
+}
+
+func (bo *board) walker(freeCells []int) {
+	for _, r := range freeCells {
+		bo.addQueen(r)
+		// bo.calcProhib()
+
+		// Last queen on table
+		if step == dim-1 {
+			p("Path found! step:", pathNum+1, "solution:", solutionNum+1)
+			for i := 0; i < dim; i++ {
+				pf("{%s%d}", clmns[pathCurr[i].column], pathCurr[i].row+1)
+			}
+			pf("\n")
+			bo.printPrChech()
+			if dim < 10 {
+				paths[pathNum] = pathCurr
+			}
+			pathNum++
+			if dim < 12 {
+				solutions[solutionNum] = pathCurr
+			}
+			solutionNum++
+			bo.remQueen()
+			continue
+		}
+
+		// Checking places to put queen
+		nextFCells := bo.FreePlaces((step) + 1)
+		if len(nextFCells) == 0 {
+			if dim < 10 {
+				pf("%d Stuck on step: %d path: ", pathNum+1, step+1)
+				for i := 0; i <= step; i++ {
+					pf("{%s%d}", clmns[pathCurr[i].column], pathCurr[i].row+1)
+				}
+				pf("\n")
+
+				paths[pathNum] = pathCurr
+			}
+			pathNum++
+			bo.remQueen()
+			continue
+		}
+		step++
+		bo.walker(nextFCells)
+
+		bo.remQueen()
+	}
+
+	// step back
+	step--
+}
+
+// no need more
 func (bo *board) calcProhib() {
 	// nullizer
 	for r := 0; r < dim; r++ {
@@ -108,7 +237,7 @@ func (bo *board) calcProhib() {
 		}
 	}
 
-	// cells not under attack
+	// cells under attack
 	for r := 0; r < dim; r++ {
 		for c := 0; c < dim; c++ {
 			for i := 0; i <= step; i++ {
@@ -121,6 +250,7 @@ func (bo *board) calcProhib() {
 	}
 }
 
+// no need more
 func (bo *board) printProh() {
 	var cellS string
 	for r := dim - 1; r >= 0; r-- {
@@ -146,102 +276,4 @@ func (bo *board) printProh() {
 		// pf("\n")
 	}
 	p("      a)        b)        c)        d)        e)        f)        g)        h)\n")
-}
-
-func (bo *board) printPrChech() {
-	for r := dim - 1; r >= 0; r-- {
-		pf("%d ", r+1)
-		if r < 9 {
-			pf(" ")
-		}
-		for c := 0; c < dim; c++ {
-			if bo.cellOccu[r][c] {
-				pf("[Q]")
-			} else if bo.ProhibCheck[r][c] {
-				pf("[-]")
-			} else {
-				pf("[ ]")
-			}
-		}
-		pf("\n")
-	}
-	pf("    a  b  c  d  e  f  g  h")
-	if dim > 8 {
-		for i := 8; i < dim; i++ {
-			pf("  %s", clmns[i])
-		}
-	}
-	pf("\n")
-}
-
-func (bo *board) FreePlaces(col int) []int {
-	free := make([]int, 0, dim)
-	for i := 0; i < dim; i++ {
-		if !bo.ProhibCheck[i][col] {
-			free = append(free, i)
-		}
-	}
-	return free
-}
-
-func (bo *board) queenNullizer() {
-	for r := 0; r < dim; r++ {
-		for c := 0; c < dim; c++ {
-			bo.cellOccu[r][c] = false
-		}
-	}
-}
-
-func (bo *board) remQueen() {
-	bo.cellOccu[bo.Queens[step].row][bo.Queens[step].column] = false
-	pathCurr[step].row = 0
-	pathCurr[step].column = 0
-}
-
-func (bo *board) walker(freeCells []int) {
-	for _, r := range freeCells {
-		bo.addQueen(r)
-		bo.calcProhib()
-
-		if step == dim-1 {
-			p("Path found! step:", pathNum+1, "solution:", solutionNum+1)
-			for i := 0; i < dim; i++ {
-				pf("{%s%d}", clmns[pathCurr[i].column], pathCurr[i].row+1)
-			}
-			pf("\n")
-			bo.printPrChech()
-			if dim < 10 {
-				paths[pathNum] = pathCurr
-			}
-			pathNum++
-			if dim < 12 {
-				solutions[solutionNum] = pathCurr
-			}
-			solutionNum++
-			bo.remQueen()
-			continue
-		}
-
-		nextFCells := bo.FreePlaces((step) + 1)
-		if len(nextFCells) == 0 {
-			if dim < 10 {
-				pf("%d Stuck on step: %d path: ", pathNum+1, step+1)
-				for i := 0; i <= step; i++ {
-					pf("{%s%d}", clmns[pathCurr[i].column], pathCurr[i].row+1)
-				}
-				pf("\n")
-
-				paths[pathNum] = pathCurr
-			}
-			pathNum++
-			bo.remQueen()
-			continue
-		}
-		step++
-		bo.walker(nextFCells)
-
-		bo.remQueen()
-	}
-	// step back
-	step--
 }
